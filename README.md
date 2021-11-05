@@ -30,3 +30,6 @@ S - D34
 Positive(+) - 3V3
 
 Negative(-) - GND
+
+Build steps:
+https://www.instructables.com/ESP32-LED-Matrix-Clock/
