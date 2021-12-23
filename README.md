@@ -1,4 +1,7 @@
+
 # ESP32-Matrix-Clock
+
+Based on https://github.com/schreibfaul1/ESP32-LED-Matrix-Clock
 
 Connections
 
