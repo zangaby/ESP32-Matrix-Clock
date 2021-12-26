@@ -2,6 +2,9 @@
 //*    ESP32 MatrixClock                                                                                  *
 //*********************************************************************************************************
 //
+// first release on 01/2019
+// updated on    19.03.2021
+// Version 1.2.2
 //
 //
 // THE SOFTWARE IS PROVIDED "AS IS" FOR PRIVATE USE ONLY, IT IS NOT FOR COMMERCIAL USE IN WHOLE OR PART OR CONCEPT.
@@ -27,13 +30,14 @@
 #define SPI_MISO      19    // not connected
 #define SPI_SCK       18
 #define MAX_CS        15
+
 #define DHTPIN 4
 #define DHTTYPE DHT11
-
 DHT dht(DHTPIN, DHTTYPE);
+
 // Credentials ----------------------------------------
-#define SSID         "#####";                      // Your WiFi credentials here
-#define PW           "#####";
+#define SSID         "xxx";                      // Your WiFi credentials here
+#define PW           "xxx";
 
 // Timezone -------------------------------------------
 #define TZName       "CET-1CEST,M3.5.0,M10.5.0/3"   // Berlin (examples see at the bottom)
@@ -42,8 +46,7 @@ DHT dht(DHTPIN, DHTTYPE);
 
 // User defined text ----------------------------------
 //#define UDTXT        "    Добрый день!  ΕΠΙΧΡΥΣΟ  "
-#define UDTXT
-
+#define UDTXT " TEST "
 // other displays -------------------------------------
 //#define REVERSE_HORIZONTAL                        // Parola, Generic and IC-Station
 //#define REVERSE_VERTICAL                          // IC-Station display
@@ -66,6 +69,7 @@ uint8_t  _maxPosX = anzMAX * 8 - 1;      // calculated maxposition
 uint8_t  _LEDarr[anzMAX][8];             // character matrix to display (40*8)
 uint8_t  _helpArrMAX[anzMAX * 8];        // helperarray for chardecoding
 uint8_t  _helpArrPos[anzMAX * 8];        // helperarray pos of chardecoding
+uint8_t  _center = 0;                    // centers the time at AnzMax > 6 (in pixels)
 boolean  _f_tckr1s = false;
 boolean  _f_tckr50ms = false;
 boolean  _f_tckr24h = false;
@@ -73,9 +77,10 @@ int16_t  _zPosX = 0;                     //xPosition (display the time)
 int16_t  _dPosX = 0;                     //xPosition (display the date)
 boolean  _f_updown = false;              //scroll direction
 uint16_t _chbuf[256];
-int sensorValue;
+
 String temp = "";
 
+//int LDR_Value; 
 
 String M_arr[12] = {"Jan.", "Feb.", "Mar.", "Apr.", "May", "June", "July", "Aug.", "Sep.", "Oct.", "Nov.", "Dec."};
 String WD_arr[7] = {"Sun,", "Mon,", "Tue,", "Wed,", "Thu,", "Fri,", "Sat,"};
@@ -708,6 +713,7 @@ void rotate_90() // for Generic displays
 void refresh_display() //take info into LEDarr
 {
     uint8_t i, j;
+
 #ifdef ROTATE_90
     rotate_90();
 #endif
@@ -826,35 +832,6 @@ uint16_t scrolltext(int16_t posX, String txt)
     }
     return p;
 }
-
-void BrightnessCheck()
-{
-  //const int sensorPin = 2; // light sensor pin
-  int sensorValue = analogRead(34); // Read sensor
-  Serial.print(F("LDR value: "));
-  Serial.println(sensorValue);
-  if (sensorValue > 500) {max7219_set_brightness(BRIGHTNESS_LOW);}
-  else {max7219_set_brightness(BRIGHTNESS_HIGH);}  
-}
-
-void TempCheck(){
-float h = dht.readHumidity();
-float t = dht.readTemperature(); 
-float hic = dht.computeHeatIndex(t, h, false);
-Serial.print(F("Humidity: "));
-Serial.print(h);
-Serial.print(F("%  Temperature: "));
-Serial.print(t);
-Serial.print(F("°C  Heat index: "));
-Serial.print(hic);
-temp = "";
-temp += F("H: ");
-temp += String(h,0);
-temp += F("% T: ");
-temp += String(t,0);
-temp += F("°C");
-Serial.print(temp);
-}
 //*********************************************************************************************************
 void timer50ms()
 {
@@ -877,6 +854,32 @@ void timer50ms()
         cnt1h = 0;
     }
 }
+
+//*********************************************************************************************************
+void UpdateBrightness()
+{
+  int LDR_Value = analogRead(34); // Read sensor
+  Serial.print(F("LDR value: "));
+  Serial.println(LDR_Value);
+  if (LDR_Value > 500) {max7219_set_brightness(BRIGHTNESS_LOW);}
+  else {max7219_set_brightness(BRIGHTNESS_HIGH);}  
+}
+
+void TandH(){
+float h = dht.readHumidity();
+float t = dht.readTemperature(); 
+
+temp = "";
+temp += F("T: ");
+temp += String(t,0);
+temp += F("°C");
+temp += F(" H: ");
+temp += String(h,0);
+temp += F("%");
+
+Serial.print(temp);
+}
+
 //*********************************************************************************************************
 void setup()
 {
@@ -902,10 +905,10 @@ void setup()
     }
     helpArr_init();
     max7219_init();
+    _center = ((anzMAX - 6) / 2) * 8;
     clear_Display();
-    BrightnessCheck();
     dht.begin();
-   //  max7219_set_brightness(BRIGHTNESS);
+    //max7219_set_brightness(BRIGHTNESS);
     _f_rtc= rtc.begin(TZName);
     if(!_f_rtc) Serial.println("no timepacket received from ntp");
     tckr.attach(0.05, timer50ms);    // every 50 msec
@@ -925,19 +928,19 @@ void loop()
     boolean f_scroll_x1 = false;
     boolean f_scroll_x2 = false;
     
-  
+
+
 #ifdef SCROLLDOWN
     _f_updown = true;
 #else
     _f_updown = false;
 #endif //SCROLLDOWN
 
-    _zPosX = _maxPosX;
+    _zPosX = _maxPosX -_center;
     _dPosX = -8;
     //  x=0; x1=0; x2=0;
 
     refresh_display();
-    
     if (_f_updown == false) {
         y2 = -9;
         y1 = 8;
@@ -954,7 +957,6 @@ void loop()
         }
         if (_f_tckr1s == true)        // flag 1sek
         {
-            
             sek1 = (rtc.getsecond()%10);
             sek2 = (rtc.getsecond()/10);
             min1 = (rtc.getminute()%10);
@@ -1017,8 +1019,8 @@ void loop()
             std22 = std2;
             _f_tckr1s = false;
             if (rtc.getsecond() == 45) f_scroll_x1 = true; // scroll ddmmyy
-            if (rtc.getsecond() == 30) BrightnessCheck();// update brightness
-            if (rtc.getsecond() == 15) TempCheck(); //check temperature
+            if (rtc.getsecond() == 10) UpdateBrightness();
+            if (rtc.getsecond() == 20) TandH();
 #ifdef UDTXT
             if (rtc.getsecond() == 25) f_scroll_x2 = true; // scroll userdefined text
 #endif //UDTXT
@@ -1031,14 +1033,14 @@ void loop()
                 _zPosX++;
                 _dPosX++;
                 if (_dPosX == sctxtlen)  _zPosX = 0;
-                if (_zPosX == _maxPosX){f_scroll_x1 = false; _dPosX = -8;}
+                if (_zPosX + _center == _maxPosX){f_scroll_x1 = false; _dPosX = -8;}
             }
 //          -------------------------------------
             if (f_scroll_x2 == true) {
                 _zPosX++;
                 _dPosX++;
                 if (_dPosX == sctxtlen)  _zPosX = 0;
-                if (_zPosX == _maxPosX){f_scroll_x2 = false; _dPosX = -8;}
+                if (_zPosX + _center == _maxPosX){f_scroll_x2 = false; _dPosX = -8;}
             }
 //          -------------------------------------
             if (sc1 == 1) {
@@ -1102,7 +1104,6 @@ void loop()
 #endif //UDTXT
             }
 //          -------------------------------------
-              
             refresh_display(); //all 50msec
             if (f_scrollend_y == true) f_scrollend_y = false;
         } //end 50ms
